@@ -1,0 +1,10 @@
+core_freq=400
+dtoverlay=spi0-1cs
+dtoverlay=gpio-fan,gpiopin=13
+dtparam=i2c_arm=on
+dtparam=spi=on
+dtparam=audio=on
+avoid_warnings=1
+disable_overscan=1
+disable_splash=1
+gpu_mem=16

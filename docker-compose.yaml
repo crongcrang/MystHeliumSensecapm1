@@ -1,0 +1,140 @@
+
+version: '2.4'
+volumes:
+  dbus: {}
+  nebra: {}
+  pktfwdr: {}
+  watchdog-log: {}
+  miner-storage: {}
+  myst-data: {}
+  myst-logs: {}
+services:
+  diagnostics:
+    image: 'nebraltd/hm-diag:arm64-6d56740'
+    ports:
+      - '80:80'
+      - '22222:22222'
+    labels:
+      io.balena.features.dbus: '1'
+      io.balena.features.sysfs: '1'
+      io.balena.features.procfs: '1'
+      io.balena.features.balena-api: '1'
+      io.balena.features.supervisor-api: '1'
+    cap_add:
+      - SYS_RAWIO
+    restart: always
+    volumes:
+      - 'pktfwdr:/var/pktfwd'
+      - 'miner-storage:/var/data'
+      - 'watchdog-log:/var/watchdog'
+      - 'nebra:/var/nebra'
+    depends_on:
+      - dbus-session
+    privileged: true
+    environment:
+      CONFIG_VERSION: a198b83
+      PKTFWD_VERSION: 5c3c90a
+      FIRMWARE_VERSION: v1.3.0
+      GATEWAYRS_VERSION: '5428419'
+      DIAGNOSTICS_VERSION: 6d56740
+      FIRMWARE_SHORT_HASH: c2dd87a
+      MULTIPLEXER_VERSION: a1fc09b
+      DBUS_SYSTEM_BUS_ADDRESS: 'unix:path=/host/run/dbus/system_bus_socket'
+  multiplexer:
+    image: 'nebraltd/hm-multiplexer:a1fc09b'
+    expose:
+      - '1681'
+    labels:
+      io.balena.features.sysfs: '1'
+      io.balena.features.procfs: '1'
+    restart: always
+    volumes:
+      - 'nebra:/var/nebra'
+    depends_on:
+      - helium-miner
+    environment:
+      FIRMWARE_VERSION: v1.3.0
+      FIRMWARE_SHORT_HASH: c2dd87a
+  dbus-session:
+    image: 'balenablocks/dbus:rpi-0.0.2'
+    restart: always
+    volumes:
+      - 'dbus:/session/dbus'
+    environment:
+      DBUS_ADDRESS: 'unix:path=/session/dbus/session_bus_socket'
+      FIRMWARE_VERSION: v1.3.0
+      FIRMWARE_SHORT_HASH: c2dd87a
+  helium-miner:
+    image: 'nebraltd/hm-gatewayrs:arm64-5428419'
+    expose:
+      - '1680'
+      - '4467'
+      - '22222'
+    cap_add:
+      - SYS_RAWIO
+    restart: always
+    volumes:
+      - 'pktfwdr:/var/pktfwd'
+      - 'miner-storage:/var/data'
+      - 'nebra:/var/nebra'
+    depends_on:
+      - diagnostics
+    privileged: true
+    environment:
+      FIRMWARE_VERSION: v1.3.0
+      FIRMWARE_SHORT_HASH: c2dd87a
+  gateway-config:
+    image: 'nebraltd/hm-config:arm64-a198b83'
+    labels:
+      io.balena.features.dbus: '1'
+      io.balena.features.sysfs: '1'
+      io.balena.features.kernel-modules: '1'
+    cap_add:
+      - NET_ADMIN
+    restart: on-failure
+    volumes:
+      - 'miner-storage:/var/data'
+      - 'dbus:/session/dbus'
+      - 'nebra:/var/nebra'
+    depends_on:
+      - dbus-session
+      - helium-miner
+      - diagnostics
+    privileged: true
+    environment:
+      FIRMWARE_VERSION: v1.3.0
+      FIRMWARE_SHORT_HASH: c2dd87a
+      DBUS_SYSTEM_BUS_ADDRESS: 'unix:path=/host/run/dbus/system_bus_socket'
+      DBUS_SESSION_BUS_ADDRESS: 'unix:path=/session/dbus/session_bus_socket'
+    stop_signal: SIGINT
+  packet-forwarder:
+    image: 'nebraltd/hm-pktfwd:5c3c90a'
+    labels:
+      io.balena.features.sysfs: '1'
+      io.balena.features.procfs: '1'
+    restart: always
+    volumes:
+      - 'pktfwdr:/var/pktfwd'
+      - 'nebra:/var/nebra'
+    depends_on:
+      - multiplexer
+    privileged: true
+    environment:
+      FIRMWARE_VERSION: v1.3.0
+      FIRMWARE_SHORT_HASH: c2dd87a
+  myst:
+    build: ./myst
+    expose:
+      - '4449'
+    command: 'service --agreed-terms-and-conditions'
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    privileged: true
+    restart: always
+    network_mode: host
+    volumes:
+      - "myst-data:/var/lib/mysterium-node"
+      - "myst-logs:/root/.mysterium"
+    labels:
+      io.balena.features.kernel-modules: '1'

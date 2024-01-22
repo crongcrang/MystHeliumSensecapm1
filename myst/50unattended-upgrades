@@ -1,0 +1,12 @@
+Unattended-Upgrade::Origins-Pattern {
+        "origin=Raspbian,codename=${distro_codename},label=Raspbian";
+        "origin=Raspbian,codename=${distro_codename},label=Raspbian-Security";
+        "o=LP-PPA-mysteriumnetwork-node";
+};
+
+Unattended-Upgrade::AutoFixInterruptedDpkg "true";
+Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+Unattended-Upgrade::Remove-Unused-Dependencies "true";
+// Automatically reboot *WITHOUT CONFIRMATION* if a
+// the file /var/run/reboot-required is found after the upgrade
+Unattended-Upgrade::Automatic-Reboot "false";
